@@ -1,24 +1,18 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "module": "commonjs",
-    "lib": [
-      "es5",
-      "dom",
-      "es2015",
-      "es2015.collection"
-    ],
     "declaration": true,
-    "declarationMap": true,
+    "module": "commonjs",
+    "target": "es2020",
     "sourceMap": true,
-    "rootDirs": [
-      "./src"
-    ],
-    "outDir": "lib",
-    "strict": false,
-    "moduleResolution": "node",
+    "strict": true,
+    "strictPropertyInitialization": false,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "importHelpers": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": "."
   },
   "include": [
     "src/**/*.ts"

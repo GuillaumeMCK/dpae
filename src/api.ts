@@ -12,6 +12,7 @@ import {
   UrlConsultation,
   UrlDepot,
 } from "./utils/constants";
+import { Retour } from "./models";
 
 /**
  * Class representing a DPAE (Déclaration Préalable à l'Embauche) API client.
@@ -320,4 +321,74 @@ export class DPAEClient {
 
     return false;
   }
+
+  /**
+  * Downloads the DPAE acknowledgment receipt (AR).
+  * @returns A promise that resolves to an object containing:
+  *  - path: The AR filename
+  *  - content: The AR file content as text
+  *  - reference: The contract reference extracted from the AR
+  * @throws DPAEError if the token is empty, if there is no IdFlux, or if the AR cannot be found after maximum retries
+  */
+public async downloadARDpaeFile(): Promise<{path: string, content: string, reference: string}> {
+  if (!this.Token || this.Token.length === 0) {
+     throw new DPAEError("Empty token");
+   }
+   if (!this.IdFlux) {
+     throw new DPAEError("No IdFlux");
+   }
+
+   const maxRetries = 60;
+   let currentRetry = 0;
+   
+   while (currentRetry < maxRetries) {
+     try {
+       const response = await axios.get(`${UrlConsultation}${this.IdFlux}`, {
+         headers: { Authorization: `DSNLogin jeton=${this.Token}` }
+       });
+
+       const flux = response.data.retours.flux[0];
+       if (!flux || !flux.retour) {
+         currentRetry++;
+         await new Promise(resolve => setTimeout(resolve, 1000));
+         continue;
+       }
+
+       const target = flux.retour.find((r: Retour) => r.nature === "41");
+
+       if (!target) {
+         currentRetry++;
+         await new Promise(resolve => setTimeout(resolve, 1000));
+         continue;
+       }
+
+       const fileResponse = await axios.get(target.url, {
+         headers: { Authorization: `DSNLogin jeton=${this.Token}` },
+         responseType: 'arraybuffer'
+       });
+
+       const contentDisposition = fileResponse.headers['content-disposition'];
+       const filename = contentDisposition ? 
+         decodeURIComponent(contentDisposition.split('filename=')[1].replace(/"/g, '')) : 
+         `dpae-${this.IdFlux}-42`;
+
+       const content = Buffer.from(fileResponse.data).toString('utf8');
+       
+       const referenceMatch = content.match(/<FR_Contract\.Reference\.Text>(.*?)<\/FR_Contract\.Reference\.Text>/);
+       const reference = referenceMatch ? referenceMatch[1] : '';
+
+       return {
+         path: filename,
+         content: content,
+         reference: reference
+       };
+
+     } catch (error) {
+       currentRetry++;
+       await new Promise(resolve => setTimeout(resolve, 5000)); // 5 seconds
+     }
+   }
+
+   throw new DPAEError("Failed to find file with nature 42 after maximum retries");
+}
 }
